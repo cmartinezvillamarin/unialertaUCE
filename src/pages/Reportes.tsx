@@ -1,0 +1,489 @@
+import { useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, ToggleLeft, Trash2, Layers, UserCheck, Tag, FileType } from 'lucide-react';
+import { EntityPageHeader } from '@/components/ui/entity-page-header';
+import { ReportesTable } from '@/components/table/ReportesTable';
+import { BulkActionsBar, BulkAction } from '@/components/ui/bulk-actions-bar';
+import { BulkActionDialog, useBulkActionDialog, BulkActionItem } from '@/components/ui/bulk-action-dialog';
+import { BulkProgressDialog } from '@/components/ui/bulk-progress-dialog';
+import { useReportResolutionModal } from '@/components/report';
+import { useScalableBulkActions } from '@/hooks/controlador/useScalableBulkActions';
+import { useReportAssignmentNotification } from '@/hooks/controlador/useReportAssignmentNotification';
+import { useReporteHistorialActions } from '@/hooks/controlador/useReporteHistorialActions';
+import { useOptimizedReportes, ReporteWithDistance } from '@/hooks/entidades/useOptimizedReportes';
+import { useOptimizedCategories } from '@/hooks/entidades/useOptimizedCategories';
+import { useOptimizedTipoReportes } from '@/hooks/entidades/useOptimizedTipoReportes';
+import { useOptimizedUsers } from '@/hooks/entidades/useOptimizedUsers';
+import { useOptimizedUserRolesList } from '@/hooks/entidades/useOptimizedUserRolesList';
+import { useOptimizedProfile } from '@/hooks/entidades/useOptimizedProfile';
+import { useUserDataReady } from '@/hooks/entidades/useUserDataReady';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import type { Database } from '@/integrations/supabase/types';
+
+type UserRole = Database['public']['Enums']['user_role'];
+
+// Roles que acceden al formulario completo (ReportForm)
+const FORM_ADVANCED_ROLES: UserRole[] = ['super_admin', 'administrador', 'mantenimiento', 'operador_analista', 'seguridad_uce'];
+
+const STATUS_OPTIONS = [
+  { id: 'pendiente', label: 'Pendiente', description: 'El reporte está pendiente de revisión' },
+  { id: 'en_progreso', label: 'En Progreso', description: 'El reporte está siendo atendido' },
+  { id: 'resuelto', label: 'Resuelto', description: 'El reporte ha sido resuelto' },
+  { id: 'rechazado', label: 'Cerrado', description: 'El reporte ha sido cerrado' },
+];
+
+const ACTIVE_STATUS_OPTIONS = [
+  { id: 'activar', label: 'Activar', description: 'Los reportes estarán visibles' },
+  { id: 'desactivar', label: 'Desactivar', description: 'Los reportes no estarán visibles' },
+];
+
+export default function Reportes() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  
+  // Obtener datos del usuario actual para verificar roles
+  const { hasRole } = useUserDataReady();
+  
+  // Obtener datos
+  const { data: reportes = [] } = useOptimizedReportes();
+  const { data: categories = [] } = useOptimizedCategories();
+  const { data: tipoReportes = [] } = useOptimizedTipoReportes();
+  const { data: users = [] } = useOptimizedUsers();
+  const { data: allUserRoles = [] } = useOptimizedUserRolesList();
+  const { data: currentProfile } = useOptimizedProfile();
+
+  // Hook de notificaciones para asignación de reportes
+  const { notifyBulkAssignment } = useReportAssignmentNotification();
+
+  // Hook para modal de resolución masiva
+  const resolutionModal = useReportResolutionModal();
+
+  // Hook para crear entradas de historial
+  const { createBulkHistorial } = useReporteHistorialActions();
+
+  // Hook de bulk actions escalable para reportes (+1000 registros)
+  const bulkActions = useScalableBulkActions<ReporteWithDistance>(reportes, {
+    tableName: 'reportes',
+    queryKey: 'reportes-with-distance',
+    hasSoftDelete: true,
+    statusColumn: 'activo',
+    assignColumn: 'assigned_to',
+    categoryColumn: 'categoria_id',
+    typeColumn: 'tipo_reporte_id',
+    relatedQueryKeys: ['categories', 'tipoReportes'],
+    permissions: {
+      edit: 'editar_reporte',
+      delete: 'eliminar_reporte',
+    },
+    useOptimizedBulkDelete: true,
+  });
+
+  // Hook del dialog
+  const dialog = useBulkActionDialog();
+
+  // Categorías y tipos activos
+  const activeCategories = useMemo(() => 
+    categories.filter(cat => cat.activo && !cat.deleted_at), 
+    [categories]
+  );
+  
+  const activeTipoReportes = useMemo(() => 
+    tipoReportes.filter(tipo => tipo.activo && !tipo.deleted_at), 
+    [tipoReportes]
+  );
+
+  // Usuarios con permiso para ser asignados (editar_reporte)
+  const assignableUsers = useMemo(() => {
+    return users.filter((user) => {
+      if (user.deleted_at || user.estado !== 'activo') return false;
+      const userRole = allUserRoles.find((role) => role.user_id === user.id);
+      if (!userRole?.permisos) return false;
+      return userRole.permisos.includes('editar_reporte');
+    });
+  }, [users, allUserRoles]);
+
+  const handleCreate = () => {
+    // Verificar si el usuario tiene rol avanzado para usar el formulario completo
+    const hasAdvancedRole = FORM_ADVANCED_ROLES.some(role => hasRole(role));
+    
+    if (hasAdvancedRole) {
+      navigate('/reportes/nuevo', { state: { backTo: '/reportes' } });
+    } else {
+      navigate('/crear-reporte', { state: { backTo: '/reportes' } });
+    }
+  };
+
+  const handleBulkUpload = () => {
+    navigate('/reportes/carga-masiva');
+  };
+
+  const handleEdit = (reporte: ReporteWithDistance) => {
+    navigate(`/reportes/${reporte.id}/editar`);
+  };
+
+  const handleView = (reporte: ReporteWithDistance) => {
+    navigate(`/reportes/${reporte.id}`);
+  };
+
+  // Manejar cambio de selección desde la tabla - sincronizar directamente
+  const handleSelectionChange = useCallback((rows: ReporteWithDistance[]) => {
+    bulkActions.setSelectedItems(rows);
+  }, [bulkActions]);
+
+  // Convertir items seleccionados para el dialog
+  const dialogItems: BulkActionItem[] = useMemo(() => {
+    return bulkActions.selectedItems.map(rep => ({
+      id: rep.id,
+      name: rep.nombre,
+      subtitle: rep.descripcion || undefined,
+      status: rep.activo ? 'Activo' : 'Inactivo',
+      statusVariant: rep.activo ? 'success' : 'secondary' as const,
+    }));
+  }, [bulkActions.selectedItems]);
+
+  // Estado para comentario obligatorio en acciones masivas
+  const [showBulkCommentDialog, setShowBulkCommentDialog] = useState(false);
+  const [bulkCommentAction, setBulkCommentAction] = useState<{
+    type: 'estado_activo' | 'estado_reporte';
+    value: string;
+    label: string;
+  } | null>(null);
+
+  // ============ ACCIONES BULK ============
+
+  // 1. Cambiar Estado (Activar/Desactivar) - REQUIERE COMENTARIO OBLIGATORIO para desactivar
+  const handleOpenChangeActiveStatus = () => {
+    dialog.open({
+      title: 'Cambiar Estado',
+      description: `¿Deseas cambiar el estado de ${bulkActions.selectedCount} reporte(s)?`,
+      items: dialogItems,
+      variant: 'warning',
+      confirmLabel: 'Continuar',
+      options: ACTIVE_STATUS_OPTIONS,
+      onConfirm: async (selectedOption) => {
+        dialog.close();
+        
+        // Si es desactivar, requiere comentario obligatorio
+        if (selectedOption === 'desactivar') {
+          setBulkCommentAction({ 
+            type: 'estado_activo', 
+            value: 'desactivar',
+            label: 'Desactivación masiva'
+          });
+          // Abrir modal de resolución con solo comentario (isBulk = true)
+          resolutionModal.open({
+            type: 'desactivacion',
+            reportName: `${bulkActions.selectedCount} reporte(s)`,
+            isBulk: true,
+            requireEvidence: false,
+            onConfirm: async (comentario) => {
+              // Registrar historial para cada reporte
+              await createBulkHistorial({
+                reporteIds: bulkActions.selectedIds,
+                tipoAccion: 'desactivacion',
+                comentario,
+                estadoAnterior: 'activo',
+                estadoNuevo: 'inactivo',
+              });
+              // Ejecutar la desactivación
+              await bulkActions.bulkToggleStatus(false);
+            },
+          });
+        } else {
+          // Activar no requiere comentario
+          await bulkActions.bulkToggleStatus(true);
+        }
+      },
+    });
+  };
+
+  // 2. Estado Reporte (Pendiente, En Progreso, Resuelto, Cerrado) - REQUIERE COMENTARIO OBLIGATORIO
+  const handleOpenChangeReportStatus = () => {
+    dialog.open({
+      title: 'Cambiar Estado del Reporte',
+      description: `Selecciona el nuevo estado para ${bulkActions.selectedCount} reporte(s)`,
+      items: dialogItems,
+      variant: 'warning',
+      confirmLabel: 'Continuar',
+      options: STATUS_OPTIONS,
+      onConfirm: async (selectedOption) => {
+        dialog.close();
+        
+        const statusLabel = STATUS_OPTIONS.find(s => s.id === selectedOption)?.label || 'Cambio de estado';
+        
+        // Determinar el tipo de acción según el estado
+        const tipoAccion = selectedOption === 'resuelto' ? 'resolucion' : 
+                          selectedOption === 'rechazado' ? 'rechazo' : 
+                          'cambio_estado';
+        
+        // Abrir modal de resolución con solo comentario (isBulk = true)
+        resolutionModal.open({
+          type: tipoAccion === 'resolucion' ? 'resolucion' : 
+                tipoAccion === 'rechazo' ? 'rechazo' : 'cambio_estado',
+          reportName: `${bulkActions.selectedCount} reporte(s)`,
+          isBulk: true,
+          requireEvidence: false,
+          onConfirm: async (comentario) => {
+            // Registrar historial para cada reporte
+            await createBulkHistorial({
+              reporteIds: bulkActions.selectedIds,
+              tipoAccion: tipoAccion as any,
+              comentario,
+              estadoNuevo: selectedOption || 'pendiente',
+            });
+            // Ejecutar el cambio de estado
+            await bulkActions.bulkChangeStatus(selectedOption || 'pendiente');
+          },
+        });
+      },
+    });
+  };
+
+  // 3. Asignar usuario (con notificación automática PWA)
+  const handleOpenAssign = () => {
+    const userOptions = [
+      { id: '__unassign__', label: 'Sin asignar', description: 'Quitar asignación' },
+      ...assignableUsers.map(user => ({
+        id: user.id,
+        label: user.name || user.email || 'Usuario',
+        description: user.email || '',
+      })),
+    ];
+
+    dialog.open({
+      title: 'Asignar Reportes',
+      description: `Selecciona a quién asignar ${bulkActions.selectedCount} reporte(s)`,
+      items: dialogItems,
+      variant: 'default',
+      confirmLabel: 'Asignar',
+      options: userOptions,
+      onConfirm: async (selectedOption) => {
+        const userId = selectedOption === '__unassign__' ? null : selectedOption;
+        const selectedReportIds = bulkActions.selectedIds;
+        
+        // Ejecutar asignación en BD
+        await bulkActions.bulkAssign(userId || null);
+        
+        // Enviar notificación PWA + in-app + mensaje automático si se asignó a alguien
+        if (userId && userId !== currentProfile?.id && currentProfile?.id) {
+          await notifyBulkAssignment({
+            reportIds: selectedReportIds,
+            assignedToUserId: userId,
+            assignedByUserId: currentProfile.id, // Necesario para crear mensaje automático
+            assignedByName: currentProfile?.name || 'Sistema',
+          });
+        }
+        
+        dialog.close();
+      },
+    });
+  };
+
+  // 4. Cambiar Categoría
+  const handleOpenChangeCategory = () => {
+    const categoryOptions = activeCategories.map(cat => ({
+      id: cat.id,
+      label: cat.nombre,
+      description: cat.descripcion || '',
+    }));
+
+    dialog.open({
+      title: 'Cambiar Categoría',
+      description: `Selecciona la nueva categoría para ${bulkActions.selectedCount} reporte(s)`,
+      items: dialogItems,
+      variant: 'default',
+      confirmLabel: 'Cambiar Categoría',
+      options: categoryOptions,
+      onConfirm: async (selectedOption) => {
+        if (selectedOption) {
+          await bulkActions.bulkChangeCategory(selectedOption);
+        }
+        dialog.close();
+      },
+    });
+  };
+
+  // 5. Cambiar Tipo (actualiza también la categoría automáticamente)
+  const handleOpenChangeType = () => {
+    const typeOptions = activeTipoReportes.map(tipo => {
+      const cat = categories.find(c => c.id === tipo.category_id);
+      return {
+        id: tipo.id,
+        label: tipo.nombre,
+        description: cat ? `Categoría: ${cat.nombre}` : '',
+        categoryId: tipo.category_id,
+      };
+    });
+
+    dialog.open({
+      title: 'Cambiar Tipo de Reporte',
+      description: `Selecciona el nuevo tipo para ${bulkActions.selectedCount} reporte(s). La categoría se actualizará automáticamente.`,
+      items: dialogItems,
+      variant: 'default',
+      confirmLabel: 'Cambiar Tipo',
+      options: typeOptions,
+      onConfirm: async (selectedOption) => {
+        if (selectedOption) {
+          const selectedType = activeTipoReportes.find(t => t.id === selectedOption);
+          if (selectedType) {
+            // Actualizar tipo y categoría juntos
+            try {
+              const { error } = await supabase
+                .from('reportes')
+                .update({
+                  tipo_reporte_id: selectedType.id,
+                  categoria_id: selectedType.category_id,
+                  updated_at: new Date().toISOString(),
+                })
+                .in('id', bulkActions.selectedIds);
+
+              if (error) throw error;
+
+              await queryClient.invalidateQueries({ queryKey: ['reportes-with-distance'] });
+              bulkActions.deselectAll();
+              toast.success(`${bulkActions.selectedCount} reporte(s) actualizado(s)`);
+            } catch (error) {
+              console.error('[Reportes] Error al cambiar tipo:', error);
+              toast.error('No se pudo cambiar el tipo');
+            }
+          }
+        }
+        dialog.close();
+      },
+    });
+  };
+
+  // 6. Eliminar
+  const handleOpenDelete = () => {
+    dialog.open({
+      title: 'Eliminar Reportes',
+      description: `¿Estás seguro de eliminar ${bulkActions.selectedCount} reporte(s)? Esta acción no se puede deshacer.`,
+      items: dialogItems,
+      variant: 'destructive',
+      confirmLabel: 'Eliminar',
+      onConfirm: async () => {
+        await bulkActions.bulkDelete();
+        dialog.close();
+      },
+    });
+  };
+
+  // Acciones bulk disponibles con permisos
+  const actions: BulkAction[] = [
+    {
+      id: 'change-active-status',
+      label: 'Cambiar Estado',
+      icon: <ToggleLeft className="h-4 w-4" />,
+      onClick: handleOpenChangeActiveStatus,
+      variant: 'outline',
+      requiredPermission: 'editar_reporte',
+    },
+    {
+      id: 'change-report-status',
+      label: 'Estado Reporte',
+      icon: <Layers className="h-4 w-4" />,
+      onClick: handleOpenChangeReportStatus,
+      variant: 'outline',
+      requiredPermission: 'editar_reporte',
+    },
+    {
+      id: 'assign',
+      label: 'Asignar',
+      icon: <UserCheck className="h-4 w-4" />,
+      onClick: handleOpenAssign,
+      variant: 'outline',
+      requiredPermission: 'editar_reporte',
+    },
+    {
+      id: 'change-category',
+      label: 'Categoría',
+      icon: <Tag className="h-4 w-4" />,
+      onClick: handleOpenChangeCategory,
+      variant: 'outline',
+      requiredPermission: 'editar_reporte',
+    },
+    {
+      id: 'change-type',
+      label: 'Tipo',
+      icon: <FileType className="h-4 w-4" />,
+      onClick: handleOpenChangeType,
+      variant: 'outline',
+      requiredPermission: 'editar_reporte',
+    },
+    {
+      id: 'delete',
+      label: 'Eliminar',
+      icon: <Trash2 className="h-4 w-4" />,
+      onClick: handleOpenDelete,
+      variant: 'destructive',
+      requiredPermission: 'eliminar_reporte',
+    },
+  ];
+
+  return (
+    <div className="h-full bg-background overflow-y-auto">
+      <div className="flex flex-col gap-4 p-4 md:p-6 w-full max-w-full">
+      <EntityPageHeader
+        title="Gestión de Reportes"
+        description="Administra todos los reportes del sistema"
+        icon={FileText}
+        entityKey="reportes"
+        createButtonText="Nuevo Reporte"
+        onCreateClick={handleCreate}
+        showBulkUpload={true}
+        bulkUploadText="Carga Masiva"
+        onBulkUploadClick={handleBulkUpload}
+      />
+
+      {/* Barra de acciones bulk */}
+      <BulkActionsBar
+        selectedCount={bulkActions.selectedCount}
+        onClear={bulkActions.deselectAll}
+        actions={actions}
+        isProcessing={bulkActions.isProcessing}
+        checkPermission={bulkActions.checkPermission}
+      />
+
+      <ReportesTable 
+        onEdit={handleEdit}
+        onView={handleView}
+        selectedRows={bulkActions.selectedItems}
+        onSelectionChange={handleSelectionChange}
+      />
+
+      {/* Dialog de confirmación bulk */}
+      <BulkActionDialog
+        open={dialog.isOpen}
+        onOpenChange={(open) => !open && dialog.close()}
+        title={dialog.config?.title || ''}
+        description={dialog.config?.description || ''}
+        items={dialog.config?.items || []}
+        confirmVariant={dialog.config?.variant}
+        confirmLabel={dialog.config?.confirmLabel}
+        cancelLabel={dialog.config?.cancelLabel}
+        options={dialog.config?.options}
+        selectedOption={dialog.selectedOption}
+        onOptionChange={dialog.setSelectedOption}
+        onConfirm={() => dialog.config?.onConfirm(dialog.selectedOption)}
+        onCancel={dialog.close}
+        entityLabel="reportes"
+      />
+
+      {/* Dialog de progreso bulk */}
+      <BulkProgressDialog
+        open={bulkActions.showProgress}
+        onOpenChange={bulkActions.setShowProgress}
+        title="Procesando Reportes"
+        progress={bulkActions.progressState}
+        entityLabel="reportes"
+        onClose={() => bulkActions.setShowProgress(false)}
+      />
+
+      {/* Modal de resolución masiva (solo comentario) */}
+      {resolutionModal.Modal}
+      </div>
+    </div>
+  );
+}
