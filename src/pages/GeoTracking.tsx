@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, History, Activity, ArrowLeft, X, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,19 +10,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { GeoTrackingMap } from '@/components/tracking/GeoTrackingMap';
 import { useActiveTracking, TrackingWithDetails } from '@/hooks/controlador/useActiveTracking';
+import { useReportResolutionModal } from '@/components/report/ReportResolutionModal';
+import { useOptimizedProfile } from '@/hooks/entidades/useOptimizedProfile';
+import { useOptimizedReportes } from '@/hooks/entidades/useOptimizedReportes';
+import { useReporteHistorialActions } from '@/hooks/controlador/useReporteHistorialActions';
 import { animationClasses } from '@/hooks/optimizacion';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -63,6 +56,17 @@ export default function GeoTracking() {
     activeCount,
   } = useActiveTracking();
 
+  // Obtener el perfil del usuario actual para validar permisos
+  const { data: currentProfile } = useOptimizedProfile();
+  
+  // Hook para actualizar reportes
+  const { update: updateReporte } = useOptimizedReportes();
+  
+  // Hook para registrar historial
+  const { createHistorial } = useReporteHistorialActions();
+  
+  // Modal de resolución con evidencia
+  const resolutionModal = useReportResolutionModal();
   // Verificar si viene de SmartReportCapture con un tracking específico
   // O de un mensaje con navegación directa a un reporte
   const navState = location.state as { 
@@ -107,16 +111,65 @@ export default function GeoTracking() {
     }
   }, [activeTrackings, currentTracking, selectTracking, userNavigatedBack]);
 
-  const handleEndTracking = async (trackingId: string) => {
-    const success = await endTracking(trackingId, 'manual');
-    if (success) {
-      toast.success('Seguimiento finalizado');
-      // Marcar que navegó back para evitar auto-selección
-      setUserNavigatedBack(true);
-    } else {
-      toast.error('Error al finalizar el seguimiento');
+  // Verificar si el usuario actual puede finalizar el tracking
+  const canEndTracking = useCallback((tracking: TrackingWithDetails) => {
+    if (!currentProfile?.id) return false;
+    // Solo el usuario asignado puede finalizar
+    return tracking.asignado_a === currentProfile.id;
+  }, [currentProfile?.id]);
+
+  // Abrir modal de resolución para finalizar tracking
+  const handleOpenEndTrackingModal = useCallback((tracking: TrackingWithDetails) => {
+    if (!canEndTracking(tracking)) {
+      toast.error('Solo el usuario asignado puede finalizar el seguimiento');
+      return;
     }
-  };
+
+    resolutionModal.open({
+      type: 'resolucion',
+      reportName: tracking.reporte?.nombre || 'Reporte',
+      requireEvidence: true,
+      isBulk: false,
+      onConfirm: async (comentario: string, evidencias: string[]) => {
+        try {
+          // 1. Finalizar el tracking
+          const success = await endTracking(tracking.id, 'resuelto_con_evidencia');
+          if (!success) {
+            throw new Error('Error al finalizar el seguimiento');
+          }
+
+          // 2. Marcar el reporte como resuelto
+          if (tracking.reporte_id) {
+            await updateReporte({
+              id: tracking.reporte_id,
+              updates: {
+                status: 'resuelto',
+                activo: false,
+                assigned_to: null,
+                updated_at: new Date().toISOString(),
+              },
+            });
+
+            // 3. Registrar en el historial del reporte
+            await createHistorial({
+              reporteId: tracking.reporte_id,
+              tipoAccion: 'resolucion',
+              comentario,
+              evidencias,
+              estadoAnterior: 'en_progreso',
+              estadoNuevo: 'resuelto',
+            });
+          }
+
+          toast.success('Seguimiento finalizado y reporte resuelto');
+          setUserNavigatedBack(true);
+        } catch (error) {
+          console.error('Error finalizando tracking:', error);
+          throw error; // Re-throw para que el modal muestre el error
+        }
+      },
+    });
+  }, [canEndTracking, resolutionModal, endTracking, updateReporte, createHistorial]);
 
   const handleBack = () => {
     if (directNavigation) {
@@ -196,34 +249,18 @@ export default function GeoTracking() {
               </div>
             </div>
 
-            {!isHistory && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Finalizar seguimiento?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      El seguimiento de {tracking.asignado?.name || 'este usuario'} será terminado.
-                      Esta acción no se puede deshacer.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleEndTracking(tracking.id)}>
-                      Finalizar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+            {!isHistory && canEndTracking(tracking) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenEndTrackingModal(tracking);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             )}
           </div>
         </CardContent>
@@ -285,6 +322,9 @@ export default function GeoTracking() {
             className="h-full"
           />
         </div>
+        
+        {/* Modal de resolución con evidencia */}
+        {resolutionModal.Modal}
       </div>
     );
   }
@@ -304,27 +344,16 @@ export default function GeoTracking() {
               {currentTracking.reporte?.nombre}
             </p>
           </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-destructive">
-                Finalizar
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Finalizar seguimiento?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  El seguimiento será terminado. Esta acción no se puede deshacer.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => handleEndTracking(currentTracking.id)}>
-                  Finalizar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {canEndTracking(currentTracking) && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-destructive"
+              onClick={() => handleOpenEndTrackingModal(currentTracking)}
+            >
+              Finalizar
+            </Button>
+          )}
         </div>
 
         {/* Mapa */}
@@ -335,6 +364,9 @@ export default function GeoTracking() {
             className="h-full"
           />
         </div>
+        
+        {/* Modal de resolución con evidencia */}
+        {resolutionModal.Modal}
       </div>
     );
   }
@@ -444,6 +476,9 @@ export default function GeoTracking() {
           </div>
         </div>
       )}
+
+      {/* Modal de resolución con evidencia */}
+      {resolutionModal.Modal}
     </div>
   );
 }
