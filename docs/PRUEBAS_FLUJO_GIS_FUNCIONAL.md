@@ -104,30 +104,31 @@ Validar el funcionamiento integral de los flujos funcionales GIS del sistema Uni
 
 <presentation-mermaid>
 graph TB
-    subgraph "Frontend"
-        A[Leaflet 1.9.4] --> B[React-Leaflet]
-        B --> C[Componentes de Mapa]
-        D[Geolocation API] --> E[useUserLocation Hook]
-        E --> F[LocationContext]
-    end
-    
-    subgraph "Backend"
-        G[PostGIS] --> H[Funciones RPC]
-        H --> I[get_reportes_with_distance]
-        H --> J[get_reportes_similares_cercanos]
-        H --> K[get_nearby_assignable_users]
-    end
-    
-    subgraph "Servicios Externos"
-        L[OpenStreetMap Tiles]
-        M[Nominatim Geocoding]
-        N[Overpass API]
-    end
-    
-    C --> L
-    C --> M
-    C --> N
-    F --> G
+
+subgraph Frontend
+    A[Leaflet 1.9.4] --> B[React-Leaflet]
+    B --> C[Componentes de Mapa]
+    D[Geolocation API] --> E[useUserLocation Hook]
+    E --> F[LocationContext]
+end
+
+subgraph Backend
+    G[PostGIS] --> H[Funciones RPC]
+    H --> I[get_reportes_with_distance]
+    H --> J[get_reportes_similares_cercanos]
+    H --> K[get_nearby_assignable_users]
+end
+
+subgraph Servicios_Externos
+    L[OpenStreetMap Tiles]
+    M[Nominatim Geocoding]
+    N[Overpass API]
+end
+
+C --> L
+C --> M
+C --> N
+F --> G
 </presentation-mermaid>
 
 ### 4.2 Componentes Principales
