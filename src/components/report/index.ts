@@ -5,3 +5,4 @@ export { ReportAssignmentTimeline } from './ReportAssignmentTimeline';
 export { SmartReportCapture } from './SmartReportCapture';
 export { ReportResolutionModal, useReportResolutionModal } from './ReportResolutionModal';
 export { ReportHistorialTimeline } from './ReportHistorialTimeline';
+export { ReportQuickViewModal, useReportQuickViewModal } from './ReportQuickViewModal';
