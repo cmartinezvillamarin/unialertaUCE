@@ -77,7 +77,7 @@ export function AuditPanel({
 
   return (
     <div className={cn(
-      'flex flex-col gap-4 p-4 md:p-6 w-full max-w-full',
+      'flex flex-col gap-4 p-4 md:p-6 w-full max-w-full overflow-x-hidden',
       animationClasses.fadeIn,
       className
     )}>
