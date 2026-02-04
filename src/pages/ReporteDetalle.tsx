@@ -1,27 +1,74 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
 import { ReporteDetails } from '@/components/details';
+import { ReportQuickViewModal } from '@/components/report';
 import { useOptimizedReportes, ReporteWithDistance } from '@/hooks/entidades/useOptimizedReportes';
+import { useEntityPermissions } from '@/hooks/controlador/useEntityPermissions';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
 
 /**
  * Página de detalle de reporte
+ * Si el usuario no tiene permiso ver_reportes, muestra un modal con vista básica
  */
 export default function ReporteDetalle() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: reportes, isLoading } = useOptimizedReportes();
+  const [showQuickView, setShowQuickView] = useState(false);
 
   // Buscar el reporte directamente sin useEffect
   const reporte = reportes.find((r) => r.id === id) || null;
 
+  // Verificar permisos - pasamos el ownerId para que el dueño pueda ver su reporte
+  const { canView, isReady, isOwner } = useEntityPermissions({ 
+    entityKey: 'reportes',
+    ownerId: reporte?.user_id 
+  });
+
+  // Si no tiene permiso y no es dueño, abrir modal de vista rápida
+  useEffect(() => {
+    if (isReady && id && !isLoading) {
+      // Si el reporte no existe en la lista (posiblemente por RLS) y no tenemos datos
+      // O si no tiene permiso de ver y no es dueño
+      if ((!reporte && reportes.length >= 0) || (!canView && !isOwner)) {
+        // Abrir modal de vista rápida
+        setShowQuickView(true);
+      }
+    }
+  }, [isReady, id, isLoading, reporte, canView, isOwner, reportes.length]);
+
+  // Handler para cuando se cierra el modal
+  const handleModalClose = () => {
+    setShowQuickView(false);
+    navigate(-1); // Volver a la página anterior
+  };
+
   // Mostrar LoadingScreen mientras carga o mientras no se ha procesado
-  if (isLoading || (reportes.length === 0 && !reporte)) {
+  if (isLoading || !isReady) {
     return <LoadingScreen message="Cargando detalles del reporte..." />;
   }
 
-  // Mostrar mensaje si no se encuentra
+  // Si no tiene permisos completos, mostrar solo el modal
+  if (!canView && !isOwner) {
+    return (
+      <div className="h-full bg-background flex items-center justify-center">
+        {/* Modal de vista rápida para usuarios sin permisos */}
+        <ReportQuickViewModal
+          reportId={id || null}
+          isOpen={showQuickView}
+          onClose={handleModalClose}
+        />
+        {/* Fallback mientras se abre el modal */}
+        {!showQuickView && (
+          <LoadingScreen message="Cargando vista del reporte..." />
+        )}
+      </div>
+    );
+  }
+
+  // Mostrar mensaje si no se encuentra (para usuarios con permiso)
   if (!reporte) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">

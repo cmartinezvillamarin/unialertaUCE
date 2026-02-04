@@ -125,7 +125,7 @@ export function SharedReportCard({
       });
     } else {
       // Para otros reportes, ir al detalle
-      navigate(`/reporte/${data.reportId}`);
+      navigate(`/reportes/${data.reportId}`);
     }
   };
 
@@ -148,7 +148,7 @@ export function SharedReportCard({
 
   const handleDetailsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/reporte/${data.reportId}`);
+    navigate(`/reportes/${data.reportId}`);
   };
 
   return (

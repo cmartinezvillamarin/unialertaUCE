@@ -184,7 +184,7 @@ export default function GeoTracking() {
   
   const handleGoToReportDetail = () => {
     if (directNavigation) {
-      navigate(`/reporte/${directNavigation.id}`);
+      navigate(`/reportes/${directNavigation.id}`);
     }
   };
 
