@@ -120,8 +120,8 @@ export default function Categorias() {
   ];
 
   return (
-    <div className="h-full bg-background overflow-y-auto">
-      <div className="flex flex-col gap-4 p-4 md:p-6 w-full max-w-full">
+    <div className="h-full bg-background overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-col gap-4 p-4 md:p-6 w-full max-w-full overflow-x-hidden">
       <EntityPageHeader
         title="Gestión de Categorías"
         description="Administra las categorías del sistema"
