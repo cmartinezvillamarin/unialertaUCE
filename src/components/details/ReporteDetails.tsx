@@ -617,7 +617,7 @@ export function ReporteDetails({ reporte }: ReporteDetailsProps) {
       icon: UserCheck,
       badge: assignmentCount,
       content: (
-        <div className={cn("space-y-4", animationClasses.fadeIn)}>
+        <div className={cn("space-y-4 w-full overflow-hidden", animationClasses.fadeIn)}>
           <EntityPageHeader
             title={`Historial de Asignaciones (${assignmentCount})`}
             description={`Usuarios que han sido asignados a "${reporte.nombre}"`}
@@ -626,12 +626,14 @@ export function ReporteDetails({ reporte }: ReporteDetailsProps) {
             showCreate={false}
             showBulkUpload={false}
           />
-          <ReportAssignmentTimeline
-            historial={historialForTimeline}
-            isLoading={isLoadingHistorial}
-            maxHeight="500px"
-            canViewUser={canViewUser}
-          />
+          <div className="w-full overflow-hidden">
+            <ReportAssignmentTimeline
+              historial={historialForTimeline}
+              isLoading={isLoadingHistorial}
+              maxHeight="500px"
+              canViewUser={canViewUser}
+            />
+          </div>
         </div>
       ),
     },

@@ -44,23 +44,23 @@ function AssignmentItemCard({
     : `Asignado a ${assignedToName} por ${assignedByName}`;
 
   return (
-    <div className="flex items-start justify-between gap-4 p-4 bg-card border rounded-lg">
-      <div className="flex items-start gap-3 min-w-0 flex-1">
+    <div className="flex items-start justify-between gap-3 p-4 bg-card border rounded-lg w-full overflow-hidden">
+      <div className="flex items-start gap-3 min-w-0 flex-1 overflow-hidden">
         {/* Punto indicador */}
         <div className="mt-1.5 shrink-0">
           <div className="h-2.5 w-2.5 rounded-full bg-primary" />
         </div>
         
         {/* Contenido */}
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1 space-y-1 overflow-hidden">
           <h4 className="font-medium text-foreground truncate">
             {isReasignacion ? 'Reasignación' : 'Asignación'} a {assignedToName.toUpperCase()}
           </h4>
-          <p className="text-sm text-muted-foreground line-clamp-2">
+          <p className="text-sm text-muted-foreground line-clamp-2 break-words">
             {description}
           </p>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5" />
+            <Calendar className="h-3.5 w-3.5 shrink-0" />
             <span>{format(fecha, "dd/MM/yyyy", { locale: es })}</span>
           </div>
         </div>
@@ -147,17 +147,19 @@ export function ReportAssignmentTimeline({
   }
 
   return (
-    <ScrollArea className="pr-4 overflow-x-hidden" style={{ maxHeight: heightStyle }}>
-      <div className="space-y-3 pb-2 overflow-x-hidden">
-        {assignmentHistorial.map((item) => (
-          <AssignmentItemCard
-            key={item.id}
-            item={item}
-            canViewUser={canViewUser}
-            onViewUser={handleViewUser}
-          />
-        ))}
-      </div>
-    </ScrollArea>
+    <div className="w-full overflow-hidden">
+      <ScrollArea className="pr-2" style={{ maxHeight: heightStyle }}>
+        <div className="space-y-3 pb-2 pr-2">
+          {assignmentHistorial.map((item) => (
+            <AssignmentItemCard
+              key={item.id}
+              item={item}
+              canViewUser={canViewUser}
+              onViewUser={handleViewUser}
+            />
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
