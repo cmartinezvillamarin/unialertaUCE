@@ -147,8 +147,8 @@ export function ReportAssignmentTimeline({
   }
 
   return (
-    <ScrollArea className="pr-4" style={{ height: heightStyle }}>
-      <div className="space-y-3 pb-2">
+    <ScrollArea className="pr-4 overflow-x-hidden" style={{ maxHeight: heightStyle }}>
+      <div className="space-y-3 pb-2 overflow-x-hidden">
         {assignmentHistorial.map((item) => (
           <AssignmentItemCard
             key={item.id}
