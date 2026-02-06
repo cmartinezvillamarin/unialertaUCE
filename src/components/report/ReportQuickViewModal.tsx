@@ -384,10 +384,12 @@ export function ReportQuickViewModal({ reportId, isOpen, onClose }: ReportQuickV
                   ))}
                 </div>
               ) : asignaciones.length > 0 ? (
-                <ReportAssignmentTimeline
-                  historial={asignaciones}
-                  maxHeight="300px"
-                />
+                <div className="overflow-hidden">
+                  <ReportAssignmentTimeline
+                    historial={asignaciones}
+                    maxHeight="280px"
+                  />
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <UserCheck className="h-12 w-12 text-muted-foreground/50 mb-3" />
@@ -410,10 +412,12 @@ export function ReportQuickViewModal({ reportId, isOpen, onClose }: ReportQuickV
                   ))}
                 </div>
               ) : resoluciones.length > 0 ? (
-                <ReportHistorialTimeline
-                  historial={resoluciones}
-                  maxHeight="300px"
-                />
+                <div className="overflow-hidden">
+                  <ReportHistorialTimeline
+                    historial={resoluciones}
+                    maxHeight="280px"
+                  />
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <History className="h-12 w-12 text-muted-foreground/50 mb-3" />
