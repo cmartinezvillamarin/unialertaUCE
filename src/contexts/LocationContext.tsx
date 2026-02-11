@@ -79,12 +79,27 @@ export function LocationProvider({ children }: LocationProviderProps) {
       clearUserLocation();
     };
 
-    const handleBeforeUnload = () => {
-      // Usar sendBeacon para garantizar que la solicitud se envíe antes de cerrar
+    const handleBeforeUnload = async () => {
+      // Use fetch with keepalive to send authenticated request before page closes
       if (profileId) {
-        const url = `https://tgrfsuewkayqrobdfesa.supabase.co/functions/v1/cleanup-user-locations`;
-        const data = JSON.stringify({ action: 'cleanup_user', user_id: profileId });
-        navigator.sendBeacon(url, data);
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData?.session?.access_token;
+          if (token) {
+            const url = `https://tgrfsuewkayqrobdfesa.supabase.co/functions/v1/cleanup-user-locations`;
+            fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ action: 'cleanup_user', user_id: profileId }),
+              keepalive: true,
+            });
+          }
+        } catch {
+          // Best effort - if session is gone, stale cleanup will handle it
+        }
       }
     };
 

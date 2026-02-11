@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.91.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 /**
@@ -12,6 +12,11 @@ const corsHeaders = {
  * 1. Llamada manual desde el cliente cuando detecta que un usuario se desconecta
  * 2. Llamada periódica (cron) para limpiar ubicaciones obsoletas
  * 3. Llamada desde el logout para limpiar la ubicación del usuario
+ * 
+ * Seguridad:
+ * - Requiere JWT válido para todas las acciones
+ * - cleanup_user: solo puede eliminar su propia ubicación
+ * - cleanup_stale / cleanup_offline_users: requiere rol admin
  */
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -22,29 +27,81 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Service role client for privileged operations
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // --- Authentication ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: missing or invalid authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
     
+    // Create user-scoped client for auth validation
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authUserId = claimsData.claims.sub;
+
+    // Get profile_id for the authenticated user
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('user_id', authUserId)
+      .single();
+
+    if (profileError || !profile) {
+      return new Response(
+        JSON.stringify({ error: 'Profile not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const callerProfileId = profile.id;
+
     const body = await req.json().catch(() => ({}));
     const { action, user_id, inactivity_minutes = 5 } = body;
 
-    console.log(`[cleanup-user-locations] Action: ${action}, User ID: ${user_id || 'N/A'}, Inactivity: ${inactivity_minutes}min`);
+    console.log(`[cleanup-user-locations] Action: ${action}, User: ${callerProfileId}, Target: ${user_id || 'N/A'}`);
 
     let result;
 
     switch (action) {
-      case 'cleanup_user':
-        // Eliminar ubicación de un usuario específico (usado en logout)
-        if (!user_id) {
-          return new Response(
-            JSON.stringify({ error: 'user_id is required for cleanup_user action' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+      case 'cleanup_user': {
+        // Users can only delete their own location
+        const targetId = user_id || callerProfileId;
+        if (targetId !== callerProfileId) {
+          // Check if caller is admin
+          const { data: isAdmin } = await supabaseAdmin.rpc('has_role', {
+            _user_id: authUserId,
+            _role: 'super_admin',
+          });
+          if (!isAdmin) {
+            return new Response(
+              JSON.stringify({ error: 'Forbidden: can only delete your own location' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
         }
-        
-        const { data: deleteResult, error: deleteError } = await supabase.rpc(
+
+        const { data: deleteResult, error: deleteError } = await supabaseAdmin.rpc(
           'delete_user_location',
-          { target_user_id: user_id }
+          { target_user_id: targetId }
         );
 
         if (deleteError) {
@@ -53,12 +110,29 @@ Deno.serve(async (req) => {
         }
 
         result = { success: true, deleted: deleteResult };
-        console.log(`[cleanup-user-locations] Deleted location for user ${user_id}: ${deleteResult}`);
+        console.log(`[cleanup-user-locations] Deleted location for user ${targetId}: ${deleteResult}`);
         break;
+      }
 
-      case 'cleanup_stale':
-        // Eliminar ubicaciones de usuarios inactivos
-        const { data: cleanupResult, error: cleanupError } = await supabase.rpc(
+      case 'cleanup_stale': {
+        // Admin-only action
+        const { data: isAdmin } = await supabaseAdmin.rpc('has_role', {
+          _user_id: authUserId,
+          _role: 'super_admin',
+        });
+        const { data: isAdministrador } = await supabaseAdmin.rpc('has_role', {
+          _user_id: authUserId,
+          _role: 'administrador',
+        });
+
+        if (!isAdmin && !isAdministrador) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: admin role required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: cleanupResult, error: cleanupError } = await supabaseAdmin.rpc(
           'cleanup_stale_user_locations',
           { inactivity_minutes }
         );
@@ -71,25 +145,39 @@ Deno.serve(async (req) => {
         result = { success: true, deleted_count: cleanupResult };
         console.log(`[cleanup-user-locations] Cleaned up ${cleanupResult} stale locations`);
         break;
+      }
 
-      case 'cleanup_offline_users':
-        // Eliminar ubicaciones de usuarios que ya no están en el canal de presencia
-        // Este action requiere una lista de profile_ids de usuarios online
+      case 'cleanup_offline_users': {
+        // Admin-only action
+        const { data: isAdminOffline } = await supabaseAdmin.rpc('has_role', {
+          _user_id: authUserId,
+          _role: 'super_admin',
+        });
+        const { data: isAdministradorOffline } = await supabaseAdmin.rpc('has_role', {
+          _user_id: authUserId,
+          _role: 'administrador',
+        });
+
+        if (!isAdminOffline && !isAdministradorOffline) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: admin role required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         const { online_user_ids = [] } = body;
         
         if (online_user_ids.length === 0) {
-          // Si no hay usuarios online, eliminar todas las ubicaciones
-          const { error: clearAllError } = await supabase
+          const { error: clearAllError } = await supabaseAdmin
             .from('user_locations')
             .delete()
-            .neq('user_id', '00000000-0000-0000-0000-000000000000'); // Workaround para DELETE all
+            .neq('user_id', '00000000-0000-0000-0000-000000000000');
           
           if (clearAllError) throw clearAllError;
           
           result = { success: true, message: 'All locations cleared (no online users)' };
         } else {
-          // Eliminar ubicaciones de usuarios que NO están en la lista de online
-          const { data: deleted, error: deleteOfflineError } = await supabase
+          const { data: deleted, error: deleteOfflineError } = await supabaseAdmin
             .from('user_locations')
             .delete()
             .not('user_id', 'in', `(${online_user_ids.join(',')})`)
@@ -105,10 +193,27 @@ Deno.serve(async (req) => {
           console.log(`[cleanup-user-locations] Cleaned ${deleted?.length || 0} offline user locations`);
         }
         break;
+      }
 
-      default:
-        // Por defecto, limpiar ubicaciones obsoletas
-        const { data: defaultResult, error: defaultError } = await supabase.rpc(
+      default: {
+        // Default: cleanup stale - also admin-only
+        const { data: isAdminDefault } = await supabaseAdmin.rpc('has_role', {
+          _user_id: authUserId,
+          _role: 'super_admin',
+        });
+        const { data: isAdministradorDefault } = await supabaseAdmin.rpc('has_role', {
+          _user_id: authUserId,
+          _role: 'administrador',
+        });
+
+        if (!isAdminDefault && !isAdministradorDefault) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: admin role required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: defaultResult, error: defaultError } = await supabaseAdmin.rpc(
           'cleanup_stale_user_locations',
           { inactivity_minutes }
         );
@@ -117,6 +222,7 @@ Deno.serve(async (req) => {
         
         result = { success: true, deleted_count: defaultResult };
         console.log(`[cleanup-user-locations] Default cleanup: ${defaultResult} locations removed`);
+      }
     }
 
     return new Response(
