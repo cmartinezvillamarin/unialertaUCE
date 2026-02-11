@@ -1,1 +1,7 @@
 project_id = "tgrfsuewkayqrobdfesa"
+
+[functions.cleanup-user-locations]
+verify_jwt = false
+
+[functions.analyze-report-image]
+verify_jwt = false
