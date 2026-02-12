@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.analyze-report-image]
 verify_jwt = false
+
+[functions.cloudinary-upload]
+verify_jwt = false
