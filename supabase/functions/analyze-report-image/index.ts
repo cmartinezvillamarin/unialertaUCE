@@ -135,8 +135,9 @@ Analiza la imagen y proporciona:
  3. Palabras clave que coincidan con las categorías disponibles
  4. Palabras clave que coincidan con los tipos de reporte disponibles
  5. Selección explícita de categoría y tipo, devolviendo IDs EXACTOS:
-     - categoriaId: id de CATEGORÍAS DISPONIBLES (string). Si hay duda, elige la más cercana; evita "" salvo que sea imposible.
-     - tipoReporteId: id de TIPOS DE REPORTE DISPONIBLES (string) que PERTENEZCA a la categoriaId elegida (mismo category_id). Si hay duda, elige el más cercano; evita "" salvo que sea imposible.
+     - categoriaId: id de CATEGORÍAS DISPONIBLES (string). SIEMPRE debes elegir la categoría más cercana de la lista. NUNCA devuelvas "".
+     - tipoReporteId: id de TIPOS DE REPORTE DISPONIBLES (string) que PERTENEZCA a la categoriaId elegida (mismo category_id). SIEMPRE debes elegir el tipo más cercano. NUNCA devuelvas "".
+     - Si la imagen no muestra claramente un incidente, elige la categoría "Otros" o la más genérica disponible.
  6. La prioridad basada en la urgencia visual:
    - "urgente": Peligro inmediato, riesgo de vida, incendio, inundación activa, accidente
    - "alto": Daño significativo, obstrucción peligrosa, falla eléctrica visible
@@ -144,14 +145,16 @@ Analiza la imagen y proporciona:
    - "bajo": Observación menor, sugerencia de mejora
  7. Información adicional relevante sobre el contexto observado
 
+REGLA IMPORTANTE: categoriaId y tipoReporteId NUNCA deben ser cadenas vacías "". Siempre selecciona la opción más adecuada de las listas proporcionadas.
+
 Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
 {
   "titulo": "string",
   "descripcion": "string",
   "categoriaKeywords": ["string"],
   "tipoKeywords": ["string"],
-   "categoriaId": "string",
-   "tipoReporteId": "string",
+   "categoriaId": "string (ID exacto de la lista, NUNCA vacío)",
+   "tipoReporteId": "string (ID exacto de la lista, NUNCA vacío)",
   "prioridad": "bajo" | "medio" | "alto" | "urgente",
   "infoAdicional": "string"
 }`;

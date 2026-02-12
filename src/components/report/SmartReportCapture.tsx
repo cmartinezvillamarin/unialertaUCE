@@ -27,7 +27,7 @@ import { useOptimizedReportes, ReporteInsert } from '@/hooks/entidades/useOptimi
 import { useCloudinaryUpload } from '@/hooks/controlador/useCloudinaryUpload';
 import { useSimilarReports } from '@/hooks/controlador/useSimilarReports';
 import { useOSMLocationData } from '@/hooks/controlador/useOSMLocationData';
-import { useSmartReportAnalysis, findBestCategoryMatch, findBestTipoMatch, type AnalysisResult } from '@/hooks/controlador/useSmartReportAnalysis';
+import { useSmartReportAnalysis, findBestCategoryMatch, findBestTipoMatch, type AnalysisResult, type AnalyzeImageOptions } from '@/hooks/controlador/useSmartReportAnalysis';
 import { useNearbyAssignableUsers } from '@/hooks/controlador/useNearbyAssignableUsers';
 import { useAutoShareReport } from '@/hooks/controlador/useAutoShareReport';
 import { useReportAssignmentNotification } from '@/hooks/controlador/useReportAssignmentNotification';
@@ -430,7 +430,13 @@ export function SmartReportCapture({ onSuccess, defaultBackRoute = '/mis-reporte
       setProgress(30);
 
       const context = buildContextString(baseDraft, incomingAIState);
-      const analysis = await analyzeImage(imageUrl, context);
+      const analysis = await analyzeImage(imageUrl, {
+        context,
+        categories: activeCategories.map(c => ({ id: c.id, nombre: c.nombre })),
+        tipoReportes: tipoReportes
+          .filter(t => t.activo && !t.deleted_at)
+          .map(t => ({ id: t.id, nombre: t.nombre, category_id: t.category_id })),
+      });
       if (!analysis) {
         toast.error('No se pudo analizar la imagen. Intenta de nuevo.');
         setStep('camera');
@@ -503,6 +509,7 @@ export function SmartReportCapture({ onSuccess, defaultBackRoute = '/mis-reporte
        // Paso 2: Obtener datos OSM (30%)
       setProgress(30);
       const osmResult = await fetchOSMLocationData(location.latitude, location.longitude);
+      console.log('[SmartReportCapture] OSM result:', osmResult);
       setOsmData(osmResult || null);
 
        // Paso 2.1: Obtener dirección (Nominatim) (40%)
@@ -511,7 +518,14 @@ export function SmartReportCapture({ onSuccess, defaultBackRoute = '/mis-reporte
 
        // Paso 3: Analizar imagen con IA (60%)
       setProgress(50);
-       const analysis = await analyzeImage(imageBase64);
+      // Pasar categorías y tipos para que la IA tenga contexto completo
+      const analyzeOptions: AnalyzeImageOptions = {
+        categories: activeCategories.map(c => ({ id: c.id, nombre: c.nombre })),
+        tipoReportes: tipoReportes
+          .filter(t => t.activo && !t.deleted_at)
+          .map(t => ({ id: t.id, nombre: t.nombre, category_id: t.category_id })),
+      };
+      const analysis = await analyzeImage(imageBase64, analyzeOptions);
       
       if (!analysis) {
         toast.error('No se pudo analizar la imagen. Intenta de nuevo.');
@@ -523,6 +537,8 @@ export function SmartReportCapture({ onSuccess, defaultBackRoute = '/mis-reporte
 
        // Paso 4: Encontrar mejor categoría y tipo
        const ids = resolveCategoryTipoIds(analysis);
+       console.log('[SmartReportCapture] Category/Type resolved:', ids);
+       console.log('[SmartReportCapture] AI returned categoriaId:', analysis.categoriaId, 'tipoReporteId:', analysis.tipoReporteId);
 
        setSelectedCategoryId(ids.categoriaId);
        setSelectedTipoId(ids.tipoReporteId);
