@@ -17,10 +17,16 @@ export interface AnalysisResult {
   infoAdicional: string;
 }
 
+export interface AnalyzeImageOptions {
+  context?: string;
+  categories?: Array<{ id: string; nombre: string }>;
+  tipoReportes?: Array<{ id: string; nombre: string; category_id: string | null }>;
+}
+
 export interface UseSmartReportAnalysisReturn {
   analyzeImage: (
     imageBase64: string,
-    context?: string
+    optionsOrContext?: string | AnalyzeImageOptions
   ) => Promise<AnalysisResult | null>;
   isAnalyzing: boolean;
   error: string | null;
@@ -36,8 +42,12 @@ export function useSmartReportAnalysis(): UseSmartReportAnalysisReturn {
 
   const analyzeImage = useCallback(async (
     imageBase64: string,
-    context?: string
+    optionsOrContext?: string | AnalyzeImageOptions
   ): Promise<AnalysisResult | null> => {
+    // Support both legacy string context and new options object
+    const options: AnalyzeImageOptions = typeof optionsOrContext === 'string'
+      ? { context: optionsOrContext }
+      : (optionsOrContext || {});
     setIsAnalyzing(true);
     setError(null);
 
@@ -60,11 +70,15 @@ export function useSmartReportAnalysis(): UseSmartReportAnalysisReturn {
 
       // Paso 2: Llamar a la edge function con la URL
       console.log('[SmartReportAnalysis] Calling analyze function...');
+      const body: Record<string, unknown> = {
+        imageUrl,
+        context: options.context || '',
+      };
+      if (options.categories?.length) body.categories = options.categories;
+      if (options.tipoReportes?.length) body.tipoReportes = options.tipoReportes;
+
       const { data, error: fnError } = await supabase.functions.invoke('analyze-report-image', {
-        body: {
-          imageUrl, // Usar URL en lugar de base64
-          context: context || '',
-        },
+        body,
       });
 
       if (fnError) {
