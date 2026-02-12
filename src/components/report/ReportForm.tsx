@@ -175,6 +175,22 @@ export function ReportForm({ reporte, onSuccess, defaultBackRoute = '/mis-report
 
     didApplyDraftRef.current = true;
 
+    console.log('[ReportForm] Applying initialDraft:', {
+      nombre: initialDraft.nombre,
+      categoriaId: initialDraft.categoriaId,
+      tipoReporteId: initialDraft.tipoReporteId,
+      priority: initialDraft.priority,
+      puntoReferencia: initialDraft.puntoReferencia,
+      edificio: initialDraft.edificio,
+      piso: initialDraft.piso,
+      aulaSala: initialDraft.aulaSala,
+      hasLocation: !!initialDraft.selectedLocation,
+      osmEdificio: initialDraft.selectedLocation?.osmEdificio,
+      osmPiso: initialDraft.selectedLocation?.osmPiso,
+      osmAulaSala: initialDraft.selectedLocation?.osmAulaSala,
+      osmPuntoReferencia: initialDraft.selectedLocation?.osmPuntoReferencia,
+    });
+
     if (typeof initialDraft.nombre === 'string') setNombre(initialDraft.nombre);
     if (typeof initialDraft.descripcion === 'string') setDescripcion(initialDraft.descripcion);
     if (typeof initialDraft.categoriaId === 'string') setCategoriaId(initialDraft.categoriaId);

@@ -498,6 +498,40 @@ out body geom;
     return result;
   }, [isPointInPolygon, calculateDistance]);
 
+  // Servidores Overpass con fallback
+  const OVERPASS_SERVERS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  ];
+
+  /**
+   * Intenta una petición Overpass contra un servidor específico
+   */
+  const tryOverpassServer = useCallback(async (
+    url: string,
+    query: string,
+    signal: AbortSignal
+  ): Promise<OverpassResponse | null> => {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: query,
+        headers: { 'Content-Type': 'text/plain' },
+        signal,
+      });
+      if (!response.ok) {
+        console.warn(`Overpass server ${url} error: ${response.status}`);
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') throw error;
+      console.warn(`Overpass server ${url} failed:`, error);
+      return null;
+    }
+  }, []);
+
   /**
    * Obtiene los datos de ubicación OSM para un punto específico
    */
@@ -517,24 +551,23 @@ out body geom;
     }
     
     abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     
     try {
       const query = buildOverpassQuery(lat, lon);
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: query,
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-        signal: abortControllerRef.current.signal,
-      });
       
-      if (!response.ok) {
-        console.warn('Overpass API error:', response.status);
+      // Intentar cada servidor en orden hasta que uno responda
+      let data: OverpassResponse | null = null;
+      for (const server of OVERPASS_SERVERS) {
+        data = await tryOverpassServer(server, query, signal);
+        if (data) break;
+      }
+
+      if (!data) {
+        console.warn('All Overpass servers failed');
         return {};
       }
-      
-      const data: OverpassResponse = await response.json();
+
       const locationData = extractLocationData(data.elements, lat, lon);
       
       // Guardar en cache
@@ -543,13 +576,12 @@ out body geom;
       return locationData;
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
-        // Request cancelado, no hacer nada
         return {};
       }
       console.warn('Error fetching OSM location data:', error);
       return {};
     }
-  }, [buildOverpassQuery, extractLocationData]);
+  }, [buildOverpassQuery, extractLocationData, tryOverpassServer]);
 
   /**
    * Limpia el cache
