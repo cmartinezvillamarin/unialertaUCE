@@ -42,23 +42,19 @@ export function useSmartReportAnalysis(): UseSmartReportAnalysisReturn {
     setError(null);
 
     try {
-      // Paso 1: Subir imagen a Cloudinary para obtener una URL
-      console.log('[SmartReportAnalysis] Uploading image to Cloudinary...');
-      const formData = new FormData();
-      formData.append('file', imageBase64);
-      formData.append('upload_preset', 'ml_default');
-      formData.append('folder', 'temp-analysis');
+      // Paso 1: Subir imagen via edge function para obtener una URL
+      console.log('[SmartReportAnalysis] Uploading image via edge function...');
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke('cloudinary-upload', {
+        body: {
+          file: imageBase64,
+          folder: 'temp-analysis',
+        },
+      });
       
-      const uploadResponse = await fetch(
-        'https://api.cloudinary.com/v1_1/dwhl67ka5/auto/upload',
-        { method: 'POST', body: formData }
-      );
-      
-      if (!uploadResponse.ok) {
-        throw new Error('Error al subir imagen para análisis');
+      if (uploadError || uploadData?.error) {
+        throw new Error(uploadError?.message || uploadData?.error || 'Error al subir imagen para análisis');
       }
       
-      const uploadData = await uploadResponse.json();
       const imageUrl = uploadData.secure_url;
       console.log('[SmartReportAnalysis] Image uploaded:', imageUrl);
 
