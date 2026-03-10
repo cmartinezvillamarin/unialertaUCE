@@ -96,17 +96,41 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB limit
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
             handler: "NetworkFirst",
             options: {
-              cacheName: "supabase-cache",
+              cacheName: "supabase-api-cache",
               expiration: {
-                maxEntries: 50,
+                maxEntries: 200,
                 maxAgeSeconds: 60 * 60 * 24 // 24 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              },
+              networkTimeoutSeconds: 5,
+            }
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/auth\/.*/i,
+            handler: "NetworkOnly",
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/realtime\/.*/i,
+            handler: "NetworkOnly",
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "supabase-storage-cache",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -120,7 +144,21 @@ export default defineConfig(({ mode }) => ({
               cacheName: "google-fonts-cache",
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "cloudinary-cache",
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -133,8 +171,22 @@ export default defineConfig(({ mode }) => ({
             options: {
               cacheName: "images-cache",
               expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/.*tile.*\.openstreetmap\.org\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "osm-tiles-cache",
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 60 * 60 * 24 * 7
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
               }
             }
           }
