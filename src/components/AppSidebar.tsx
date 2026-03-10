@@ -16,6 +16,7 @@ import {
   Settings,
   Shield,
   Locate,
+  CalendarDays,
 } from "lucide-react";
 import {
   Sidebar,
