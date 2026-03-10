@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { CalendarDays } from 'lucide-react';
-import { PageHeader } from '@/components/PageHeader';
 import { CalendarView, EventFormModal, EventDetailModal } from '@/components/calendario';
 import { useEventos, Evento } from '@/hooks/entidades/useEventos';
 import { useOptimizedUserRoles } from '@/hooks/entidades';
@@ -26,11 +24,6 @@ export default function Calendario() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <PageHeader
-        title="Calendario de Eventos"
-        description="Eventos del campus universitario"
-        icon={CalendarDays}
-      />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">

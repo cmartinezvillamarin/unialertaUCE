@@ -130,6 +130,7 @@ const App = () => (
                     <Route path="/perfil/editar" element={<EditarPerfil />} />
                     <Route path="/configuracion" element={<Configuracion />} />
                     <Route path="/geotracking" element={<GeoTracking />} />
+                    <Route path="/calendario" element={<Calendario />} />
                   </Route>
                   
                   {/* Catch-all */}

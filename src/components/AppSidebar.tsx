@@ -130,6 +130,11 @@ const menuItems: SidebarMenuItem[] = [
     icon: Eye,
     roles: ['super_admin', 'administrador']
   },
+  { 
+    title: "Calendario", 
+    url: "/calendario", 
+    icon: CalendarDays 
+  },
   { title: "Configuración", url: "/configuracion", icon: Settings },
 ];
 

@@ -38,6 +38,7 @@ const pageConfig: Record<string, { title: string; icon: React.ComponentType<{ cl
   "/auditoria": { title: "Auditoría", icon: Eye },
   "/configuracion": { title: "Configuración", icon: Settings },
   "/perfil": { title: "Mi Perfil", icon: User },
+  "/calendario": { title: "Calendario de Eventos", icon: Bell },
 };
 
 export function PageHeader() {
