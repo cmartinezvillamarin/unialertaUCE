@@ -26,3 +26,7 @@ export { StickyAside } from './StickyAside';
 export { SocialProfileHeader } from './SocialProfileHeader';
 export { SocialProfileView } from './SocialProfileView';
 export { UserListModal } from './UserListModal';
+
+// Encuestas / Votaciones
+export { PollCard } from './PollCard';
+export { CreatePollCard } from './CreatePollCard';
