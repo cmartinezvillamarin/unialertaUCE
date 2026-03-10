@@ -4,11 +4,13 @@
  */
 import { useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Users, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOptimizedProfile } from '@/hooks/entidades/useOptimizedProfile';
 import { EntityPageHeader } from '@/components/ui/entity-page-header';
 import { type SearchFilters } from '@/hooks/entidades';
+import { useEncuestas } from '@/hooks/entidades/useEncuestas';
+import { Button } from '@/components/ui/button';
 import { 
   StatusSection, 
   FriendRequestsSection,
@@ -22,6 +24,8 @@ import {
   SuggestedUsersCard,
   SocialSidebarMobile,
   StickyAside,
+  PollCard,
+  CreatePollCard,
 } from '@/components/redsocial';
 
 export default function RedSocial() {
