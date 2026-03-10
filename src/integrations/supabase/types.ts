@@ -367,6 +367,152 @@ export type Database = {
           },
         ]
       }
+      encuesta_opciones: {
+        Row: {
+          created_at: string
+          encuesta_id: string
+          id: string
+          orden: number
+          texto: string
+        }
+        Insert: {
+          created_at?: string
+          encuesta_id: string
+          id?: string
+          orden?: number
+          texto: string
+        }
+        Update: {
+          created_at?: string
+          encuesta_id?: string
+          id?: string
+          orden?: number
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encuesta_opciones_encuesta_id_fkey"
+            columns: ["encuesta_id"]
+            isOneToOne: false
+            referencedRelation: "encuestas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      encuesta_respuestas: {
+        Row: {
+          created_at: string
+          encuesta_id: string
+          id: string
+          opcion_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encuesta_id: string
+          id?: string
+          opcion_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encuesta_id?: string
+          id?: string
+          opcion_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encuesta_respuestas_encuesta_id_fkey"
+            columns: ["encuesta_id"]
+            isOneToOne: false
+            referencedRelation: "encuestas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encuesta_respuestas_opcion_id_fkey"
+            columns: ["opcion_id"]
+            isOneToOne: false
+            referencedRelation: "encuesta_opciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encuesta_respuestas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encuesta_respuestas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      encuestas: {
+        Row: {
+          activo: boolean
+          created_at: string
+          created_by: string
+          descripcion: string | null
+          fecha_cierre: string | null
+          id: string
+          pregunta: string
+          publicacion_id: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          created_by: string
+          descripcion?: string | null
+          fecha_cierre?: string | null
+          id?: string
+          pregunta: string
+          publicacion_id?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          created_by?: string
+          descripcion?: string | null
+          fecha_cierre?: string | null
+          id?: string
+          pregunta?: string
+          publicacion_id?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encuestas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encuestas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encuestas_publicacion_id_fkey"
+            columns: ["publicacion_id"]
+            isOneToOne: false
+            referencedRelation: "publicaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estado_reacciones: {
         Row: {
           created_at: string
@@ -520,6 +666,132 @@ export type Database = {
           {
             foreignKeyName: "estados_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evento_reportes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          evento_id: string
+          id: string
+          reporte_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          evento_id: string
+          id?: string
+          reporte_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          evento_id?: string
+          id?: string
+          reporte_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evento_reportes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evento_reportes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evento_reportes_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evento_reportes_reporte_id_fkey"
+            columns: ["reporte_id"]
+            isOneToOne: false
+            referencedRelation: "public_reportes_anonymized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evento_reportes_reporte_id_fkey"
+            columns: ["reporte_id"]
+            isOneToOne: false
+            referencedRelation: "reportes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventos: {
+        Row: {
+          activo: boolean
+          color: string | null
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          descripcion: string | null
+          fecha_fin: string | null
+          fecha_inicio: string
+          id: string
+          lat: number | null
+          lng: number | null
+          titulo: string
+          ubicacion: string | null
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          color?: string | null
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          descripcion?: string | null
+          fecha_fin?: string | null
+          fecha_inicio: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          titulo: string
+          ubicacion?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          descripcion?: string | null
+          fecha_fin?: string | null
+          fecha_inicio?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          titulo?: string
+          ubicacion?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles_public"
             referencedColumns: ["id"]
