@@ -169,7 +169,7 @@ export default function RedSocial() {
                   />
                 ))}
               </div>
-            )
+            )}
 
             <PostFeed 
               userId={profile?.id} 
