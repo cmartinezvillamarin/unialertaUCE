@@ -49,6 +49,7 @@ import Configuracion from "./pages/Configuracion";
 import Instalar from "./pages/Instalar";
 import Registro from "./pages/Registro";
 import GeoTracking from "./pages/GeoTracking";
+import Calendario from "./pages/Calendario";
 import { AppLayout } from "./components/AppLayout";
 
 // QueryClient fuera del componente para evitar recreación en HMR
