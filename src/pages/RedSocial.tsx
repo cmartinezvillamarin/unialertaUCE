@@ -123,12 +123,53 @@ export default function RedSocial() {
 
             <FriendRequestsSection currentUserId={profile?.id} />
 
-            <CreatePostCard
-              userAvatar={profile?.avatar}
-              userName={profile?.name}
-              userUsername={profile?.username}
-              userId={profile?.id}
-            />
+            <div className="flex items-center gap-2">
+              <CreatePostCard
+                userAvatar={profile?.avatar}
+                userName={profile?.name}
+                userUsername={profile?.username}
+                userId={profile?.id}
+              />
+            </div>
+
+            {/* Poll toggle button */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPollForm(!showPollForm)}
+                className="gap-1.5 text-xs"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                {showPollForm ? 'Cerrar encuesta' : 'Crear encuesta'}
+              </Button>
+            </div>
+
+            {showPollForm && (
+              <CreatePollCard
+                onSubmit={(data) => {
+                  createEncuesta.mutate(data, {
+                    onSuccess: () => setShowPollForm(false),
+                  });
+                }}
+                isLoading={createEncuesta.isPending}
+                onCancel={() => setShowPollForm(false)}
+              />
+            )}
+
+            {/* Active polls */}
+            {encuestas.length > 0 && (
+              <div className="space-y-3">
+                {encuestas.slice(0, 3).map(encuesta => (
+                  <PollCard
+                    key={encuesta.id}
+                    encuesta={encuesta}
+                    onVote={(eId, oId) => votar.mutate({ encuestaId: eId, opcionId: oId })}
+                    onRemoveVote={(eId) => removeVote.mutate(eId)}
+                  />
+                ))}
+              </div>
+            )
 
             <PostFeed 
               userId={profile?.id} 
