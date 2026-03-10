@@ -4,11 +4,13 @@
  */
 import { useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Users, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOptimizedProfile } from '@/hooks/entidades/useOptimizedProfile';
 import { EntityPageHeader } from '@/components/ui/entity-page-header';
 import { type SearchFilters } from '@/hooks/entidades';
+import { useEncuestas } from '@/hooks/entidades/useEncuestas';
+import { Button } from '@/components/ui/button';
 import { 
   StatusSection, 
   FriendRequestsSection,
@@ -22,6 +24,8 @@ import {
   SuggestedUsersCard,
   SocialSidebarMobile,
   StickyAside,
+  PollCard,
+  CreatePollCard,
 } from '@/components/redsocial';
 
 export default function RedSocial() {
@@ -32,6 +36,10 @@ export default function RedSocial() {
   
   // Estado para filtros de búsqueda avanzada
   const [searchFilters, setSearchFilters] = useState<SearchFilters | null>(null);
+  const [showPollForm, setShowPollForm] = useState(false);
+  
+  // Encuestas
+  const { encuestas, createEncuesta, votar, removeVote } = useEncuestas();
   
   // Obtener parámetros de query para abrir contenido específico
   const openEstadoId = searchParams.get('estado');
@@ -115,12 +123,53 @@ export default function RedSocial() {
 
             <FriendRequestsSection currentUserId={profile?.id} />
 
-            <CreatePostCard
-              userAvatar={profile?.avatar}
-              userName={profile?.name}
-              userUsername={profile?.username}
-              userId={profile?.id}
-            />
+            <div className="flex items-center gap-2">
+              <CreatePostCard
+                userAvatar={profile?.avatar}
+                userName={profile?.name}
+                userUsername={profile?.username}
+                userId={profile?.id}
+              />
+            </div>
+
+            {/* Poll toggle button */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPollForm(!showPollForm)}
+                className="gap-1.5 text-xs"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                {showPollForm ? 'Cerrar encuesta' : 'Crear encuesta'}
+              </Button>
+            </div>
+
+            {showPollForm && (
+              <CreatePollCard
+                onSubmit={(data) => {
+                  createEncuesta.mutate(data, {
+                    onSuccess: () => setShowPollForm(false),
+                  });
+                }}
+                isLoading={createEncuesta.isPending}
+                onCancel={() => setShowPollForm(false)}
+              />
+            )}
+
+            {/* Active polls */}
+            {encuestas.length > 0 && (
+              <div className="space-y-3">
+                {encuestas.slice(0, 3).map(encuesta => (
+                  <PollCard
+                    key={encuesta.id}
+                    encuesta={encuesta}
+                    onVote={(eId, oId) => votar.mutate({ encuestaId: eId, opcionId: oId })}
+                    onRemoveVote={(eId) => removeVote.mutate(eId)}
+                  />
+                ))}
+              </div>
+            )}
 
             <PostFeed 
               userId={profile?.id} 

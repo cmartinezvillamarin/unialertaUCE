@@ -16,6 +16,7 @@ import {
   Settings,
   Shield,
   Locate,
+  CalendarDays,
 } from "lucide-react";
 import {
   Sidebar,
@@ -128,6 +129,11 @@ const menuItems: SidebarMenuItem[] = [
     url: "/auditoria", 
     icon: Eye,
     roles: ['super_admin', 'administrador']
+  },
+  { 
+    title: "Calendario", 
+    url: "/calendario", 
+    icon: CalendarDays 
   },
   { title: "Configuración", url: "/configuracion", icon: Settings },
 ];
