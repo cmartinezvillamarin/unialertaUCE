@@ -36,6 +36,10 @@ export default function RedSocial() {
   
   // Estado para filtros de búsqueda avanzada
   const [searchFilters, setSearchFilters] = useState<SearchFilters | null>(null);
+  const [showPollForm, setShowPollForm] = useState(false);
+  
+  // Encuestas
+  const { encuestas, createEncuesta, votar, removeVote } = useEncuestas();
   
   // Obtener parámetros de query para abrir contenido específico
   const openEstadoId = searchParams.get('estado');
