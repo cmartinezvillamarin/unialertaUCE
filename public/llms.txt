@@ -1,0 +1,13 @@
+# UniAlerta UCE
+
+> Plataforma de la Universidad Central del Ecuador para reportar incidentes, gestionar alertas universitarias en tiempo real y coordinar respuestas dentro del campus.
+
+UniAlerta UCE permite a estudiantes, docentes y personal administrativo enviar reportes geolocalizados, recibir notificaciones de seguridad y participar en la red social interna de la comunidad universitaria.
+
+## Pages
+
+- [Inicio](/): Página principal y registro de nuevos usuarios.
+- [Iniciar sesión](/login): Acceso para miembros de la comunidad universitaria.
+- [Registro](/registro): Crear una cuenta nueva en UniAlerta UCE.
+- [Instalar la app](/instalar): Guía para instalar UniAlerta como PWA.
+- [Recuperar contraseña](/forgot-password): Restablecer el acceso a la cuenta.

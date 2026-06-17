@@ -250,7 +250,7 @@ export function ShareStatusModal({
         {statusImage ? (
           <img 
             src={statusImage} 
-            alt="Estado" 
+            alt={`Imagen del estado compartido por ${userName}`}
             className="max-h-[100px] rounded object-contain"
           />
         ) : statusContent ? (
@@ -298,7 +298,7 @@ export function ShareStatusModal({
           {statusImage && (
             <img 
               src={statusImage} 
-              alt="Contenido" 
+              alt={`Contenido del estado de ${userName}`}
               className="mt-2 rounded max-h-[60px] object-cover w-full"
             />
           )}
