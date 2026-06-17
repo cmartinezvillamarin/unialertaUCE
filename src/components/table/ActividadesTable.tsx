@@ -19,7 +19,6 @@ type AuditRecord = Record<string, unknown> & {
   user_id: string | null;
   user_profile?: {
     name: string | null;
-    email: string | null;
   } | null;
 };
 

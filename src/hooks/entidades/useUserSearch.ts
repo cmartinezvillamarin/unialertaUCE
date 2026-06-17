@@ -12,7 +12,6 @@ export interface UserSearchResult {
   name: string | null;
   username: string | null;
   avatar: string | null;
-  email: string | null;
 }
 
 export interface HashtagSearchResult {

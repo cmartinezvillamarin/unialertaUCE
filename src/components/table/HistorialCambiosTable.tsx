@@ -26,11 +26,9 @@ type HistorialRecord = Record<string, unknown> & {
   metadata?: unknown;
   performed_by_profile?: {
     name: string | null;
-    email: string | null;
   } | null;
   user_profile?: {
     name: string | null;
-    email: string | null;
   } | null;
 };
 
