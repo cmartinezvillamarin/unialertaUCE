@@ -87,7 +87,7 @@ export function GroupMembersPanel({
         {/* Header */}
         <div className="h-16 border-b flex items-center justify-between px-4">
           <h3 className="font-semibold">Integrantes del grupo</h3>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar panel de integrantes">
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -180,7 +180,7 @@ export function GroupMembersPanel({
                     {canManage && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Opciones del integrante">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

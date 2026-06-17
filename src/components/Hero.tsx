@@ -38,7 +38,7 @@ const Hero = () => {
               <ArrowRight className="w-5 h-5" />
             </Button>
             <Button variant="glass" size="lg">
-              Learn More
+              Explore Features
             </Button>
           </div>
 

@@ -76,7 +76,7 @@ export function ChatHeader({
     )}>
       {/* Botón atrás (móvil) */}
       {isMobile && onBack && (
-        <Button variant="ghost" size="icon" onClick={onBack}>
+        <Button variant="ghost" size="icon" onClick={onBack} aria-label="Volver a la lista de chats">
           <ArrowLeft className="h-5 w-5" />
         </Button>
       )}
@@ -120,7 +120,7 @@ export function ChatHeader({
         {/* Menu de opciones */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="Abrir opciones del chat">
               <MoreVertical className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
