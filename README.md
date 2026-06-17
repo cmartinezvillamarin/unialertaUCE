@@ -25,6 +25,7 @@
 - [Módulos Funcionales](#módulos-funcionales)
 - [Sistema de Información Geográfica (SIG)](#sistema-de-información-geográfica-sig)
 - [Seguridad](#seguridad)
+- [Configuración de Supabase](#configuración-de-supabase)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Requisitos Previos](#requisitos-previos)
 - [Instalación y Configuración](#instalación-y-configuración)
@@ -346,6 +347,327 @@ El núcleo del proyecto es su infraestructura GIS, estructurada en seis etapas:
 | **Datos sensibles** | Soft delete (`deleted_at`), minimización en vistas públicas, exclusión de contraseñas |
 | **Edge Functions** | Verificación JWT con `supabase.auth.getUser()` en cada función |
 | **Cambio de usuario** | Limpieza automática de caché local y ubicaciones al cambiar de cuenta en el mismo navegador |
+
+---
+
+## Configuración de Supabase
+
+Supabase es el backend del proyecto y proporciona autenticación, base de datos PostgreSQL con PostGIS, Realtime (WebSockets), Edge Functions (Deno) y Storage. A continuación se detalla la configuración completa.
+
+### Requisitos del Proyecto Supabase
+
+- **Proyecto activo** en [supabase.com](https://supabase.com) (plan Free es suficiente para la PoC)
+- **PostGIS** habilitado como extensión de base de datos
+- Proveedor de autenticación **Email/Password** activado
+- **Supabase CLI** instalada para migraciones y Edge Functions:
+  ```bash
+  npm install -g supabase
+  # o: scoop install supabase (Windows)
+  # o: brew install supabase/tap/supabase (macOS)
+  ```
+
+### Configuración Inicial
+
+```bash
+# 1. Crear proyecto en https://supabase.com/dashboard
+# 2. Anotar Project ID, URL y anon key
+# 3. Habilitar PostGIS:
+#    SQL Editor → CREATE EXTENSION IF NOT EXISTS postgis;
+# 4. Configurar Auth:
+#    Authentication → Settings → Site URL: http://localhost:8080
+#    Authentication → Settings → Redirect URLs: http://localhost:8080/**
+#    Authentication → Providers → Email: habilitado
+# 5. Vincular proyecto local:
+supabase login
+supabase link --project-ref tgrfsuewkayqrobdfesa
+```
+
+### Migraciones de Base de Datos
+
+El proyecto incluye **11 migraciones SQL** en `supabase/migrations/` que deben aplicarse en orden cronológico:
+
+| Archivo | Fecha | Contenido |
+|---------|-------|-----------|
+| `20260123_*.sql` | 23 Ene 2026 | Políticas RLS para `user_locations` |
+| `20260124_*.sql` (1) | 24 Ene 2026 | Políticas RLS para `reporte_historial` |
+| `20260124_*.sql` (2) | 24 Ene 2026 | Funciones: `cleanup_stale_user_locations()`, `delete_user_location()`, trigger de limpieza |
+| `20260127_*.sql` | 27 Ene 2026 | Tabla `active_trackings` + RLS + índices |
+| `20260128_*.sql` | 28 Ene 2026 | Tipo enum `reporte_historial_tipo`, índices en `reporte_historial` |
+| `20260211_*.sql` | 11 Feb 2026 | Vista `profiles_public` con `security_invoker` |
+| `20260212_*.sql` | 12 Feb 2026 | Fix `search_path` en funciones existentes |
+| `20260223_*.sql` | 23 Feb 2026 | Función `handle_new_user()` — registro automático con roles, permisos y auditoría |
+| `20260310_*.sql` | 10 Mar 2026 | Tablas: `eventos`, `evento_reportes`, `encuestas`, `encuesta_opciones`, `encuesta_respuestas` + RLS |
+| `20260617_*.sql` (1) | 17 Jun 2026 | Ajustes menores de políticas |
+| `20260617_*.sql` (2) | 17 Jun 2026 | Grant `SELECT(email)` en `profiles` para usuarios autenticados |
+
+```bash
+# Aplicar migraciones
+supabase db push
+
+# Descargar esquema actual (si cambió desde el dashboard)
+supabase db pull
+
+# Regenerar tipos TypeScript locales (después de cambios en el esquema)
+supabase gen types typescript --linked > src/integrations/supabase/types.ts
+```
+
+### Esquema de Base de Datos (~30 tablas de negocio)
+
+Las tablas están agrupadas por módulo funcional:
+
+**Auth y Perfiles**
+| Tabla | Propósito |
+|-------|-----------|
+| `profiles` | Perfiles de usuario (name, username, avatar, email, estado) |
+| `user_roles` | Roles y permisos granulares por usuario |
+| `login_attempts` | Registro de intentos de inicio de sesión (seguridad) |
+| `settings` | Preferencias de usuario (tracking en tiempo real, etc.) |
+| `user_audit` | Auditoría de cambios en usuarios |
+
+**Reportes e Incidentes**
+| Tabla | Propósito |
+|-------|-----------|
+| `reportes` | Reportes de incidentes con geolocalización (`geography POINT`) |
+| `incidents` | Tabla adicional de incidentes con ubicación |
+| `incident_history` | Historial de cambios de incidentes |
+| `reporte_historial` | Historial de asignaciones y cambios de estado |
+| `reporte_confirmaciones` | Confirmaciones de reportes |
+| `active_trackings` | Seguimientos activos de operadores en campo |
+| `categories` | Categorías de reportes |
+| `tipo_categories` | Tipos de reporte dentro de cada categoría |
+
+**Red Social**
+| Tabla | Propósito |
+|-------|-----------|
+| `publicaciones` | Publicaciones del muro social |
+| `comentarios` | Comentarios en publicaciones |
+| `comentario_menciones` | Menciones (@usuario) en comentarios |
+| `interacciones` | Likes/reacciones a publicaciones |
+| `encuestas` | Encuestas asociadas a publicaciones |
+| `encuesta_opciones` | Opciones de respuesta de encuestas |
+| `encuesta_respuestas` | Votos/respuestas de usuarios a encuestas |
+| `hashtags` | Hashtags del sistema |
+| `publicacion_hashtags` | Relación publicaciones-hashtags |
+| `publicacion_menciones` | Menciones en publicaciones |
+| `publicacion_compartidos` | Veces compartida una publicación |
+| `publicacion_guardadas` | Publicaciones guardadas por usuarios |
+| `publicacion_vistas` | Vistas de publicaciones |
+| `relaciones` | Relaciones de amistad/seguimiento entre usuarios |
+| `user_blocks` | Bloqueos entre usuarios |
+| `usuarios_silenciados` | Usuarios silenciados |
+| `user_hashtag_follows` | Seguimiento de hashtags |
+
+**Mensajería**
+| Tabla | Propósito |
+|-------|-----------|
+| `conversaciones` | Conversaciones (individuales y grupales) |
+| `participantes_conversacion` | Miembros de cada conversación con roles |
+| `mensajes` | Mensajes con contenido, tipo y metadatos |
+| `mensaje_reacciones` | Reacciones a mensajes |
+| `message_receipts` | Recibos de entrega y lectura |
+| `group_history` | Historial de cambios en grupos |
+
+**Notificaciones**
+| Tabla | Propósito |
+|-------|-----------|
+| `notifications` | Notificaciones en tiempo real con tipo, origen y destino |
+
+**GIS y Geolocalización**
+| Tabla | Propósito |
+|-------|-----------|
+| `user_locations` | Ubicaciones de usuarios (`geography POINT`) para tracking |
+| `eventos` | Eventos del campus con coordenadas (lat, lng) |
+| `evento_reportes` | Vinculación entre eventos y reportes |
+
+**Estados Temporales (Stories)**
+| Tabla | Propósito |
+|-------|-----------|
+| `estados` | Estados temporales tipo stories con expiración |
+| `estado_reacciones` | Reacciones a estados |
+| `estado_vistas` | Vistas de estados |
+
+**Multimedia**
+| Tabla | Propósito |
+|-------|-----------|
+| `attachments` | Archivos adjuntos (imágenes subidas a Cloudinary/Supabase) |
+
+**Vistas**
+| Vista | Propósito |
+|-------|-----------|
+| `profiles_public` | Perfiles públicos (excluye email, deleted, inactivos) — `security_invoker` |
+| `public_reportes_anonymized` | Reportes anonimizados para visualización pública |
+
+### Tipos Enums Personalizados (12)
+
+| Enum | Valores |
+|------|---------|
+| `user_status` | `activo`, `inactivo`, `bloqueado` |
+| `user_role` | `super_admin`, `administrador`, `operador`, `usuario_regular`, `seguridad_uce` |
+| `user_permission` | `ver_reporte`, `crear_reporte`, `editar_reporte`, `eliminar_reporte`, `ver_usuario`, `crear_usuario`, `editar_usuario`, `eliminar_usuario`, `ver_categoria`, `crear_categoria`, `editar_categoria`, `eliminar_categoria`, `ver_estado`, `crear_estado`, `editar_estado`, `eliminar_estado` |
+| `incident_status` | `pendiente`, `en_progreso`, `resuelto`, `cancelado` |
+| `incident_severity` | `bajo`, `medio`, `alto`, `urgente` |
+| `notification_type` | `system`, `report_assigned`, `report_status`, `friend_request`, `message`, `nearby_report`, `comment`, `like`, `event` |
+| `conversation_role` | `admin`, `member` |
+| `tipo_interaccion` | `like`, `love`, `haha`, `wow`, `sad`, `angry` |
+| `media_provider` | `cloudinary`, `supabase` |
+| `report_visibility` | `publico`, `privado`, `internal` |
+| `reporte_historial_tipo` | `creacion`, `asignacion`, `cambio_estado`, `comentario`, `reabierto`, `escalado` |
+| `friend_request_status` | `pendiente`, `aceptada`, `rechazada`, `bloqueada` |
+
+### Funciones RPC (Procedimientos Almacenados)
+
+**Seguridad y Roles:**
+| Función | Propósito |
+|---------|-----------|
+| `has_role(user_id uuid, role user_role)` → `boolean` | Verifica si un usuario tiene un rol específico (SECURITY DEFINER) |
+| `has_permission(profile_id uuid, permission user_permission)` → `boolean` | Verifica si un perfil tiene un permiso específico |
+| `get_profile_id_from_auth()` → `uuid` | Obtiene el profile_id del usuario autenticado actual |
+| `get_profile_id_from_user_id(auth_user_id uuid)` → `uuid` | Convierte auth.users.id a profiles.id |
+| `is_authenticated()` → `boolean` | Verifica si hay una sesión activa |
+| `check_login_lockout(profile_id uuid)` → `boolean` | Verifica si una cuenta está bloqueada por intentos fallidos |
+
+**GIS y Ubicaciones:**
+| Función | Propósito |
+|---------|-----------|
+| `cleanup_stale_user_locations(inactivity_minutes int)` → `int` | Elimina ubicaciones de usuarios inactivos (admin) |
+| `delete_user_location(target_user_id uuid)` → `boolean` | Elimina ubicación de un usuario específico |
+| `get_reportes_similares_cercanos(...)` | Busca reportes similares por proximidad geográfica |
+| `get_reportes_with_distance(...)` | Reportes con cálculo de distancia |
+| `get_nearby_assignable_users(...)` | Usuarios asignables cerca de un punto |
+
+**Mensajería:**
+| Función | Propósito |
+|---------|-----------|
+| `mark_messages_read(conversation_id uuid)` | Marca mensajes como leídos |
+| `mark_messages_delivered(conversation_id uuid)` | Marca mensajes como entregados |
+| `hide_conversation_for_user(conversation_id uuid)` | Oculta conversación |
+| `delete_message_for_everyone(message_id uuid)` | Elimina mensaje para todos |
+| `is_conversation_participant(conversation_id uuid)` | Verifica participación |
+
+**Auditoría y Utilidades:**
+| Función | Propósito |
+|---------|-----------|
+| `handle_new_user()` | Trigger automático al registrar usuario (crea profile, roles, settings, audit_log) |
+| `audit_user_login()` | Registra inicio de sesión en auditoría |
+| `audit_user_logout()` | Registra cierre de sesión |
+| `generate_unique_username(email text)` → `text` | Genera username único basado en email |
+| `cleanup_expired_estados()` | Limpia estados temporales expirados |
+
+### Autenticación
+
+**Proveedor configurado:**
+- **Email/Password** — registro con confirmación de email opcional
+
+**Flujo de registro (`handle_new_user` trigger):**
+1. Se crea el usuario en `auth.users`
+2. El trigger `handle_new_user()` se ejecuta automáticamente
+3. Crea perfil en `profiles` con username único y metadatos
+4. Asigna roles según metadatos (`raw_user_meta_data.roles`)
+5. Asigna permisos según metadatos (`raw_user_meta_data.permisos`)
+6. Crea registro en `settings` con valores por defecto
+7. Crea registro de auditoría en `user_audit`
+8. Si el primer usuario del sistema → rol `super_admin` con todos los permisos
+9. Si es creado por admin con contraseña temporal → `must_change_password = true`
+
+**Seguridad de sesión:**
+- JWT con expiración configurable (por defecto 1 hora)
+- Refresh tokens automáticos (configurado en `client.ts`)
+- Bloqueo por intentos fallidos vía `login_attempts`
+- Persistencia de sesión en `localStorage`
+
+### Row Level Security (RLS)
+
+Todas las tablas tienen RLS habilitado. Principios generales:
+
+| Principio | Implementación |
+|-----------|----------------|
+| **Propios datos** | `user_id = get_profile_id_from_auth()` en tablas de usuario |
+| **Roles** | `has_role(auth.uid(), 'super_admin')` para operaciones administrativas |
+| **Permisos** | `has_permission(get_profile_id_from_auth(), 'ver_reporte')` para acciones específicas |
+| **Autenticados** | `get_profile_id_from_auth() IS NOT NULL` para vistas generales |
+| **Público** | Solo vistas anonimizadas (`public_reportes_anonymized`) |
+
+Las políticas se definen por tabla con nombres descriptivos, ej.:
+- `user_locations_insert_own` — solo insertar propia ubicación
+- `reportes_select_authorized` — ver reportes según visibilidad y permisos
+- `active_trackings_update_assigned` — el asignado puede actualizar su tracking
+
+### Edge Functions en Supabase
+
+Las 3 Edge Functions se ejecutan en el runtime de **Deno** y se configuran desde `supabase/config.toml`:
+
+```toml
+project_id = "tgrfsuewkayqrobdfesa"
+
+[functions.cleanup-user-locations]
+verify_jwt = false
+
+[functions.analyze-report-image]
+verify_jwt = false
+
+[functions.cloudinary-upload]
+verify_jwt = false
+```
+
+**Variables de entorno requeridas por cada función:**
+
+| Función | Variables |
+|---------|-----------|
+| `analyze-report-image` | `LOVABLE_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` (o `SUPABASE_SERVICE_ROLE_KEY`) |
+| `cloudinary-upload` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` |
+| `cleanup-user-locations` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY` |
+
+**Despliegue:**
+```bash
+supabase functions deploy analyze-report-image
+supabase functions deploy cloudinary-upload
+supabase functions deploy cleanup-user-locations
+
+# Establecer secrets
+supabase secrets set LOVABLE_API_KEY=tu_valor
+supabase secrets set CLOUDINARY_CLOUD_NAME=tu_valor
+supabase secrets set CLOUDINARY_API_KEY=tu_valor
+supabase secrets set CLOUDINARY_API_SECRET=tu_valor
+
+# Ejecución local
+supabase functions serve analyze-report-image --env-file .env
+```
+
+### Realtime
+
+Configuración de canales WebSocket desde Supabase Dashboard → Realtime:
+
+| Canal | Tablas | Propósito |
+|-------|--------|-----------|
+| `notifications` | `notifications` | Notificaciones en tiempo real |
+| `messages` | `mensajes`, `message_receipts` | Mensajería instantánea |
+| `tracking` | `user_locations` | Seguimiento de ubicaciones de operadores |
+| `presence` | — | Presencia online/offline de usuarios |
+| `reportes` | `reportes` | Actualizaciones de estado de reportes |
+
+La suscripción se realiza desde el frontend mediante el cliente de Supabase:
+```typescript
+supabase
+  .channel('notifications')
+  .on('postgres_changes', 
+    { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profileId}` },
+    (payload) => { /* manejar notificación */ }
+  )
+  .subscribe();
+```
+
+### Storage
+
+Actualmente no se utilizan buckets de Supabase Storage directamente. Las imágenes se suben a **Cloudinary** mediante la Edge Function `cloudinary-upload`. Si se desea usar Supabase Storage:
+
+1. Crear bucket desde Dashboard → Storage
+2. Configurar políticas RLS:
+   ```sql
+   CREATE POLICY "Authenticated users can upload images"
+   ON storage.objects FOR INSERT TO authenticated
+   WITH CHECK (bucket_id = 'report-images');
+   ```
+3. Subir archivos mediante `supabase.storage.from('report-images').upload()`
 
 ---
 
