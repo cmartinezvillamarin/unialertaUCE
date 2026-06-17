@@ -8,11 +8,9 @@ type UserAuditRow = Database['public']['Tables']['user_audit']['Row'];
 export interface UserAudit extends UserAuditRow {
   performed_by_profile?: {
     name: string | null;
-    email: string | null;
   } | null;
   user_profile?: {
     name: string | null;
-    email: string | null;
   } | null;
 }
 
@@ -26,8 +24,8 @@ export function useOptimizedUserAudit() {
         .from('user_audit')
         .select(`
           *,
-          performed_by_profile:profiles!user_audit_performed_by_fkey(name, email),
-          user_profile:profiles!user_audit_user_id_fkey(name, email)
+          performed_by_profile:profiles!user_audit_performed_by_fkey(name),
+          user_profile:profiles!user_audit_user_id_fkey(name)
         `)
         .order('created_at', { ascending: false });
 

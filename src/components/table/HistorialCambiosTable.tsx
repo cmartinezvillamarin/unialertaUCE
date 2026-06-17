@@ -235,7 +235,7 @@ export function HistorialCambiosTable({ externalData, isExternalLoading }: Histo
         if (!row) return <span className="text-muted-foreground">-</span>;
         // Primero intentamos con user_profile, luego performed_by_profile
         const profile = row.user_profile || row.performed_by_profile;
-        const displayName = profile?.email || profile?.name || 'Usuario desconocido';
+        const displayName = profile?.name || 'Usuario desconocido';
         return (
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" />

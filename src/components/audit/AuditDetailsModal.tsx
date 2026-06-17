@@ -179,7 +179,7 @@ export const AuditDetailsModal = memo(({ record, open, onOpenChange }: AuditDeta
   const Icon = config.icon;
   
   const profile = record.user_profile || record.performed_by_profile;
-  const userEmail = profile?.email || profile?.name || 'Usuario desconocido';
+  const userEmail = profile?.name || 'Usuario desconocido';
   
   const date = record.created_at ? new Date(record.created_at) : null;
   const isValidDate = date && !isNaN(date.getTime());

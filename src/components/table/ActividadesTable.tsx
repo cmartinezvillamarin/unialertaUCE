@@ -187,7 +187,7 @@ export function ActividadesTable({ externalData, isExternalLoading }: Actividade
       render: (_value: unknown, row: AuditRecord) => {
         if (!row) return <span className="text-muted-foreground">-</span>;
         const profile = row.user_profile;
-        const displayName = profile?.email || profile?.name || 'Usuario desconocido';
+        const displayName = profile?.name || 'Usuario desconocido';
         return (
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" />

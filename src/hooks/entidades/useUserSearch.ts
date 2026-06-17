@@ -53,7 +53,7 @@ export function useUserSearch(options: UseUserSearchOptions = {}) {
 
       let query = supabase
         .from('profiles')
-        .select('id, name, username, avatar, email')
+        .select('id, name, username, avatar')
         .is('deleted_at', null);
 
       // Excluir usuario actual si se proporciona
@@ -65,8 +65,8 @@ export function useUserSearch(options: UseUserSearchOptions = {}) {
         // Si empieza con @, buscar solo por username
         query = query.ilike('username', `%${cleanSearch}%`);
       } else {
-        // Buscar por nombre, username o email
-        query = query.or(`name.ilike.%${cleanSearch}%,username.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`);
+        // Buscar por nombre o username (email excluido por privacidad)
+        query = query.or(`name.ilike.%${cleanSearch}%,username.ilike.%${cleanSearch}%`);
       }
 
       const { data, error } = await query.limit(limit);

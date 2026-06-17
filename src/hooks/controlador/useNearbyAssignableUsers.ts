@@ -183,7 +183,7 @@ export function useNearbyAssignableUsers(
       // 2. Obtener perfiles de usuarios activos y confirmados
       const { data: profiles, error: profError } = await supabase
         .from('profiles')
-        .select('id, name, email, avatar, estado, confirmed, deleted_at')
+        .select('id, name, avatar, estado, confirmed, deleted_at')
         .is('deleted_at', null)
         .eq('estado', 'activo')
         .eq('confirmed', true);
@@ -286,7 +286,7 @@ export function useNearbyAssignableUsers(
         nearbyUsers.push({
           id: profile.id,
           name: profile.name,
-          email: profile.email,
+          email: null,
           avatar: profile.avatar,
           distance,
           roles: userRolesList,
