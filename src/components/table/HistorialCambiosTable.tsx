@@ -116,7 +116,7 @@ export function HistorialCambiosTable({ externalData, isExternalLoading }: Histo
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleViewDetails = useCallback((record: HistorialRecord) => {
-    setSelectedRecord(record as AuditRecord);
+    setSelectedRecord(record as unknown as AuditRecord);
     setIsModalOpen(true);
   }, []);
 
